@@ -41,3 +41,17 @@ All commands are run from the root of the project, from a terminal:
 ## 👀 Want to learn more?
 
 Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+
+
+
+Chess.com
+users + games
+
+Lichess
+analyse
+
+Stockfish
+accuracy / best move
+
+Chart.js
+grafieken
