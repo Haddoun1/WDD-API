@@ -1,89 +1,792 @@
 ---
-const defaultPlayer = 'MocroPapi';
-const response = await fetch(`https://api.chess.com/pub/player/${defaultPlayer}`);
-const data = await response.json();
-const statsResponse = await fetch(`https://api.chess.com/pub/player/${defaultPlayer}/stats`);
-const statsData = await statsResponse.json();
+import Layout from "../layouts/Layout.astro";
 ---
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Boss op chess</title>
-    <style>
-      body { font-family: sans-serif; padding: 2rem; text-align: center; }
-      input { padding: 0.5rem; margin-right: 0.5rem; }
-      img { max-width: 150px; border-radius: 50%; margin-top: 1rem; }
-      ul { list-style: none; padding-left: 0; text-align: left; display: inline-block; margin-top: 1rem; }
-      li { margin-bottom: 0.5rem; }
-    </style>
-  </head>
-  <body>
-    <h1>Boss op chess</h1>
 
-    <input type="text" id="username" placeholder="Enter Chess.com username" />
-    <button id="searchBtn">Search</button>
+<Layout title="Search">
+  <div class="home">
+    <!-- Left: Search panel -->
+    <section class="search-panel">
+      <div class="hero-text">
+        <h1>Wie is de beste<br /><span class="accent">Chess speler?</span></h1>
+      </div>
 
-    <div id="playerContainer">
-      <img id="playerAvatar" src={data.avatar ?? ''} alt="Avatar" />
-      {!data.avatar && <p>No avatar available</p>}
-      <ul id="playerInfo">
-        <li><strong>Username:</strong> {data.username}</li>
-        <li><strong>Name:</strong> {data.name ?? 'N/A'}</li>
-        <li><strong>Rapid ELO:</strong> {statsData.chess_rapid?.last?.rating ?? 'N/A'}</li>
-        <li><strong>Country:</strong> {data.country ?? 'N/A'}</li>
-        <li><strong>Joined:</strong> {data.joined ? new Date(data.joined*1000).toLocaleDateString() : 'N/A'}</li>
-      </ul>
+      <form id="searchForm" class="search-form">
+        <div class="input-wrap">
+          <input
+            type="text"
+            id="usernameInput"
+            placeholder="Chess.com username..."
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+          />
+        </div>
+        <button type="submit" id="searchBtn">
+          <span class="btn-text">Zoek speler</span>
+          <span class="btn-arrow">→</span>
+        </button>
+      </form>
+
+      <div id="playerCard" class="player-card hidden">
+        <div class="player-avatar-wrap">
+          <img id="playerAvatar" src="" alt="" />
+          <div id="playerStatus" class="status-dot"></div>
+        </div>
+        <div class="player-info">
+          <h2 id="playerName"></h2>
+          <span id="playerTitle" class="player-title"></span>
+          <div class="player-meta">
+            <span id="playerCountry"></span>
+            <span id="playerFollowers"></span>
+          </div>
+          <div id="playerRatings" class="ratings-row"></div>
+        </div>
+      </div>
+
+      <div id="errorMsg" class="error-msg hidden"></div>
+      <div id="loadingMsg" class="loading-msg hidden">
+        <span class="spinner"></span> Loading player data...
+      </div>
+    </section>
+
+    <!-- Right: Recent games -->
+    <section class="games-panel">
+      <div id="gamesEmpty" class="games-empty"></div>
+    </section>
+
+    <div id="gamesContainer" class="hidden">
+      <div class="games-header">
+        <h2>Recent Games</h2>
+        <span id="gamesCount" class="games-badge"></span>
+      </div>
+      <ul id="gamesList" class="games-list"></ul>
     </div>
+  </div>
+</Layout>
 
-    <script>
-      const searchBtn = document.getElementById('searchBtn');
-      const usernameInput = document.getElementById('username');
-      const playerContainer = document.getElementById('playerContainer');
-      const playerInfo = document.getElementById('playerInfo');
+<style>
+  .home {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    gap: 3rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    min-height: calc(100vh - 80px);
+    align-items: start;
+    padding-top: 2rem;
+  }
 
-      async function fetchPlayerProfile(username) {
-        try {
-          const profileResp = await fetch(`https://api.chess.com/pub/player/${username}`);
-          if (!profileResp.ok) {
-            playerContainer.innerHTML = '<p>Player not found</p>';
-            return;
-          }
-          const profile = await profileResp.json();
+  /* ─── Search Panel ─── */
+  .search-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    position: sticky;
+    top: 100px;
+  }
 
-      
-          const statsResp = await fetch(`https://api.chess.com/pub/player/${username}/stats`);
-          const stats = await statsResp.json();
+  .hero-text h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.8rem, 5vw, 4rem);
+    line-height: 1;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.75rem;
+  }
 
-      
-          playerContainer.innerHTML = `
-            <img src="${profile.avatar ?? ''}" alt="Avatar" />
-            ${!profile.avatar ? '<p>No avatar available</p>' : ''}
-            <ul>
-              <li><strong>Username:</strong> ${profile.username}</li>
-              <li><strong>Name:</strong> ${profile.name ?? 'N/A'}</li>
-              <li><strong>Rapid ELO:</strong> ${stats.chess_rapid?.last?.rating ?? 'N/A'}</li>
-              <li><strong>Country:</strong> ${profile.country ?? 'N/A'}</li>
-              <li><strong>Joined:</strong> ${profile.joined ? new Date(profile.joined*1000).toLocaleDateString() : 'N/A'}</li>
-            </ul>
-          `;
-        } catch (err) {
-          console.error(err);
-          playerContainer.innerHTML = '<p>Error fetching player</p>';
+  .hero-text h1 .accent {
+    color: var(--accent);
+  }
+
+  .hero-text p {
+    color: var(--muted);
+    font-size: 0.92rem;
+    max-width: 320px;
+  }
+
+  .search-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .input-wrap input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    color: var(--white);
+    font-size: 0.95rem;
+    transition:
+      border-color 0.2s,
+      box-shadow 0.2s;
+  }
+
+  .input-wrap input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(232, 201, 122, 0.12);
+  }
+
+  .input-wrap input::placeholder {
+    color: var(--muted);
+  }
+
+  button[type="submit"] {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--accent);
+    color: #0c0c0e;
+    border-radius: 10px;
+    padding: 0.9rem 1.25rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition:
+      opacity 0.2s,
+      transform 0.1s;
+  }
+
+  button[type="submit"]:hover {
+    opacity: 0.88;
+  }
+  button[type="submit"]:active {
+    transform: scale(0.98);
+  }
+
+  .btn-arrow {
+    font-size: 1.2rem;
+  }
+
+  /* ─── Player Card ─── */
+  .player-card {
+    display: flex;
+    gap: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem;
+    animation: fadeSlideIn 0.3s ease;
+  }
+
+  .player-card.hidden {
+    display: none;
+  }
+
+  .player-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .player-avatar-wrap img {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+  }
+
+  .status-dot {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--surface);
+    background: var(--muted);
+  }
+
+  .status-dot.online {
+    background: var(--win);
+  }
+
+  .player-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .player-info h2 {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+  }
+
+  .player-title {
+    display: inline-block;
+    background: var(--accent);
+    color: #0c0c0e;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 1px 7px;
+    border-radius: 3px;
+    margin-top: 2px;
+  }
+
+  .player-meta {
+    display: flex;
+    gap: 0.75rem;
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin-top: 0.4rem;
+  }
+
+  .ratings-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.6rem;
+  }
+
+  .rating-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    display: flex;
+    gap: 0.3rem;
+    align-items: center;
+  }
+
+  .rating-badge .type {
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+  .rating-badge .val {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* ─── Error / Loading ─── */
+  .error-msg {
+    background: rgba(248, 113, 113, 0.1);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+    color: var(--loss);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    font-size: 0.88rem;
+  }
+
+  .loading-msg {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  /* ─── Games Panel ─── */
+  .games-panel {
+    min-height: 400px;
+  }
+
+  .games-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    gap: 1.5rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .empty-grid {
+    width: 120px;
+    height: 120px;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    opacity: 0.15;
+    border: 1px solid var(--border);
+  }
+
+  .games-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .games-header h2 {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    letter-spacing: 0.04em;
+  }
+
+  .games-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 2px 10px;
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    color: var(--muted);
+  }
+
+  .games-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  /* Game card styles injected by JS */
+
+  /* ─── Animations ─── */
+  @keyframes fadeSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (max-width: 900px) {
+    .home {
+      grid-template-columns: 1fr;
+    }
+
+    .search-panel {
+      position: static;
+    }
+  }
+</style>
+
+<script>
+  const form = document.getElementById("searchForm") as HTMLFormElement;
+  const input = document.getElementById("usernameInput") as HTMLInputElement;
+  const playerCard = document.getElementById("playerCard") as HTMLElement;
+  const errorMsg = document.getElementById("errorMsg") as HTMLElement;
+  const loadingMsg = document.getElementById("loadingMsg") as HTMLElement;
+  const gamesEmpty = document.getElementById("gamesEmpty") as HTMLElement;
+  const gamesContainer = document.getElementById(
+    "gamesContainer",
+  ) as HTMLElement;
+  const gamesList = document.getElementById("gamesList") as HTMLElement;
+  const gamesCount = document.getElementById("gamesCount") as HTMLElement;
+
+  // Build empty chess grid
+  const emptyGrid = document.querySelector(".empty-grid") as HTMLElement;
+  if (emptyGrid) {
+    for (let i = 0; i < 64; i++) {
+      const cell = document.createElement("div");
+      const row = Math.floor(i / 8);
+      const col = i % 8;
+      cell.style.background =
+        (row + col) % 2 === 0 ? "rgba(255,255,255,0.5)" : "transparent";
+      emptyGrid.appendChild(cell);
+    }
+  }
+
+  function showLoading() {
+    loadingMsg.classList.remove("hidden");
+    errorMsg.classList.add("hidden");
+    playerCard.classList.add("hidden");
+  }
+
+  function hideLoading() {
+    loadingMsg.classList.add("hidden");
+  }
+
+  function showError(msg: string) {
+    errorMsg.textContent = msg;
+    errorMsg.classList.remove("hidden");
+  }
+
+  function getResultClass(result: string) {
+    if (result === "win") return "win";
+    if (
+      ["checkmated", "resigned", "timeout", "abandoned", "lose"].includes(
+        result,
+      )
+    )
+      return "loss";
+    return "draw";
+  }
+
+  function getResultLabel(result: string) {
+    const map: Record<string, string> = {
+      win: "WIN",
+      checkmated: "LOSS",
+      resigned: "LOSS",
+      timeout: "LOSS",
+      abandoned: "LOSS",
+      agreed: "DRAW",
+      stalemate: "DRAW",
+      repetition: "DRAW",
+      insufficient: "DRAW",
+      timevsinsufficient: "DRAW",
+      "50move": "DRAW",
+      lose: "LOSS",
+    };
+    return map[result] ?? result.toUpperCase();
+  }
+
+  function getTerminationLabel(result: string) {
+    const map: Record<string, string> = {
+      win: "Opponent resigned / checkmated",
+      checkmated: "Checkmated",
+      resigned: "Resigned",
+      timeout: "Timeout",
+      abandoned: "Abandoned",
+      agreed: "Draw agreed",
+      stalemate: "Stalemate",
+      repetition: "Threefold repetition",
+      insufficient: "Insufficient material",
+      "50move": "50-move rule",
+    };
+    return map[result] ?? result;
+  }
+
+  function formatDate(ts: number) {
+    const d = new Date(ts * 1000);
+    return d.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const username = input.value.trim();
+    if (!username) return;
+
+    showLoading();
+    gamesEmpty.classList.remove("hidden");
+    gamesContainer.classList.add("hidden");
+
+    try {
+      // Fetch player profile
+      const profileRes = await fetch(
+        `https://api.chess.com/pub/player/${username}`,
+      );
+      if (!profileRes.ok)
+        throw new Error("Player not found. Check the username and try again.");
+      const profile = await profileRes.json();
+
+      // Fetch stats
+      const statsRes = await fetch(
+        `https://api.chess.com/pub/player/${username}/stats`,
+      );
+      const stats = statsRes.ok ? await statsRes.json() : {};
+
+      // Display player card
+      const avatar = document.getElementById(
+        "playerAvatar",
+      ) as HTMLImageElement;
+      avatar.src =
+        profile.avatar ||
+        "https://www.chess.com/bundles/web/images/user-image.007dad08.svg";
+
+      const statusDot = document.getElementById("playerStatus") as HTMLElement;
+      statusDot.className =
+        "status-dot" + (profile.status === "online" ? " online" : "");
+
+      (document.getElementById("playerName") as HTMLElement).textContent =
+        profile.username;
+
+      const titleEl = document.getElementById("playerTitle") as HTMLElement;
+      if (profile.title) {
+        titleEl.textContent = profile.title;
+        titleEl.style.display = "inline-block";
+      } else {
+        titleEl.style.display = "none";
+      }
+
+      const countryEl = document.getElementById("playerCountry") as HTMLElement;
+      const countryCode = profile.country?.split("/").pop() ?? "";
+      countryEl.textContent = countryCode ? `🌍 ${countryCode}` : "";
+
+      const followersEl = document.getElementById(
+        "playerFollowers",
+      ) as HTMLElement;
+      if (profile.followers)
+        followersEl.textContent = `${profile.followers.toLocaleString()} followers`;
+
+      const ratingsEl = document.getElementById("playerRatings") as HTMLElement;
+      ratingsEl.innerHTML = "";
+      const ratingTypes = [
+        { key: "chess_rapid", label: "Rapid" },
+        { key: "chess_blitz", label: "Blitz" },
+        { key: "chess_bullet", label: "Bullet" },
+        { key: "chess_daily", label: "Daily" },
+      ];
+      for (const { key, label } of ratingTypes) {
+        if (stats[key]?.last?.rating) {
+          ratingsEl.innerHTML += `<span class="rating-badge"><span class="type">${label}</span><span class="val">${stats[key].last.rating}</span></span>`;
         }
       }
 
-      searchBtn.addEventListener('click', () => {
-        const username = usernameInput.value.trim();
-        if (username) fetchPlayerProfile(username);
-      });
+      playerCard.classList.remove("hidden");
+      hideLoading();
 
-      usernameInput.addEventListener('keyup', (e) => {
-        if (e.key === 'Enter') {
-          const username = usernameInput.value.trim();
-          if (username) fetchPlayerProfile(username);
+      // Fetch recent games
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+
+      let games: any[] = [];
+      // Try current month, then previous if empty
+      for (let offset = 0; offset <= 3 && games.length === 0; offset++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const gRes = await fetch(
+          `https://api.chess.com/pub/player/${username}/games/${y}/${m}`,
+        );
+        if (gRes.ok) {
+          const gData = await gRes.json();
+          games = gData.games ?? [];
         }
+      }
+
+      // Take last 5, most recent first
+      const recent = games.slice(-5).reverse();
+
+      if (recent.length === 0) {
+        gamesEmpty.classList.remove("hidden");
+        gamesContainer.classList.add("hidden");
+        return;
+      }
+
+      gamesEmpty.classList.add("hidden");
+      gamesContainer.classList.remove("hidden");
+      gamesCount.textContent = `${recent.length} games`;
+      gamesList.innerHTML = "";
+
+      recent.forEach((game: any, idx: number) => {
+        const isWhite =
+          game.white.username.toLowerCase() === username.toLowerCase();
+        const me = isWhite ? game.white : game.black;
+        const opp = isWhite ? game.black : game.white;
+        const resultClass = getResultClass(me.result);
+        const resultLabel = getResultLabel(me.result);
+        const timeClass = game.time_class ?? "rapid";
+
+        const li = document.createElement("li");
+        li.className = "game-card";
+        li.style.animationDelay = `${idx * 0.05}s`;
+        li.innerHTML = `
+        <div class="gc-result ${resultClass}">${resultLabel}</div>
+        <div class="gc-details">
+          <div class="gc-matchup">
+            <span class="gc-color ${isWhite ? "white" : "black"}"></span>
+            <span class="gc-opp">${opp.username}</span>
+            <span class="gc-ratings">
+              <span>${me.rating ?? "?"}</span>
+              <span class="vs">vs</span>
+              <span>${opp.rating ?? "?"}</span>
+            </span>
+          </div>
+          <div class="gc-meta">
+            <span class="gc-type">${timeClass}</span>
+            <span class="gc-termination">${getTerminationLabel(me.result)}</span>
+            <span class="gc-date">${formatDate(game.end_time)}</span>
+          </div>
+        </div>
+        <div class="gc-arrow">→</div>
+      `;
+
+        li.addEventListener("click", () => {
+          const encoded = encodeURIComponent(
+            JSON.stringify({
+              game,
+              username,
+              isWhite,
+            }),
+          );
+          window.location.href = `/game/${encodeURIComponent(username)}?g=${encoded}`;
+        });
+
+        gamesList.appendChild(li);
       });
-    </script>
-  </body>
-</html>
+    } catch (err: any) {
+      hideLoading();
+      showError(err.message || "Something went wrong. Please try again.");
+    }
+  });
+</script>
+
+<style is:global>
+  .game-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    transition:
+      border-color 0.2s,
+      transform 0.15s,
+      background 0.2s;
+    animation: fadeSlideIn 0.3s ease both;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .game-card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+  }
+
+  .game-card:has(.gc-result.win)::before {
+    background: var(--win);
+  }
+  .game-card:has(.gc-result.loss)::before {
+    background: var(--loss);
+  }
+  .game-card:has(.gc-result.draw)::before {
+    background: var(--draw);
+  }
+
+  .game-card:hover {
+    border-color: var(--accent);
+    transform: translateX(4px);
+    background: var(--surface2);
+  }
+
+  .gc-result {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    min-width: 48px;
+    text-align: center;
+  }
+
+  .gc-result.win {
+    color: var(--win);
+  }
+  .gc-result.loss {
+    color: var(--loss);
+  }
+  .gc-result.draw {
+    color: var(--draw);
+  }
+
+  .gc-details {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .gc-matchup {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .gc-color {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1.5px solid var(--border);
+  }
+
+  .gc-color.white {
+    background: var(--white);
+  }
+  .gc-color.black {
+    background: #1a1a1a;
+    border-color: #555;
+  }
+
+  .gc-opp {
+    font-weight: 500;
+    font-size: 0.92rem;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .gc-ratings {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  .gc-ratings .vs {
+    color: var(--border);
+    font-size: 0.7rem;
+  }
+
+  .gc-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  .gc-type {
+    text-transform: capitalize;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.72rem;
+  }
+
+  .gc-meta span + span::before {
+    content: "·";
+    margin-right: 0.5rem;
+  }
+
+  .gc-arrow {
+    color: var(--muted);
+    font-size: 1rem;
+    transition:
+      color 0.2s,
+      transform 0.2s;
+  }
+
+  .game-card:hover .gc-arrow {
+    color: var(--accent);
+    transform: translateX(3px);
+  }
+</style>
