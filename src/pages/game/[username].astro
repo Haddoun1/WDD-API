@@ -1,0 +1,923 @@
+---
+export const prerender = false;
+import Layout from "../../layouts/Layout.astro";
+
+const { username } = Astro.params;
+---
+
+
+<Layout title={`Partij — ${username}`}>
+  <div class="game-page">
+
+    <!-- Back button -->
+    <a href="/" class="back-btn" id="backBtn">
+      <span>←</span> Terug
+    </a>
+
+    <!-- Loading state -->
+    <div id="loadingState" class="loading-state">
+      <div class="load-spinner"></div>
+      <p>Partij laden...</p>
+    </div>
+
+    <!-- Error state -->
+    <div id="errorState" class="error-state hidden">
+      <p id="errorText">Er ging iets mis.</p>
+      <a href="/" class="back-link">← Terug naar zoeken</a>
+    </div>
+
+    <!-- Main game content -->
+    <div id="gameContent" class="game-content hidden">
+
+      <!-- BOXING VS HEADER -->
+      <div class="vs-arena" id="vsArena">
+        <div class="vs-fighter" id="fighterLeft">
+          <div class="fighter-side left">
+            <div class="fighter-avatar-wrap">
+              <img id="avatarLeft" src="" alt="" class="fighter-avatar" />
+              <div class="fighter-flag" id="flagLeft"></div>
+            </div>
+            <div class="fighter-info">
+              <div class="fighter-color-badge white-badge">♔ Wit</div>
+              <h2 class="fighter-name" id="nameLeft"></h2>
+              <div class="fighter-rating" id="ratingLeft"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="vs-center" id="vsCenter">
+          <div class="vs-result-wrap" id="vsResultWrap">
+            <div class="vs-label" id="vsLabel">VS</div>
+            <div class="vs-scores" id="vsScores">
+              <span class="score-left" id="scoreLeft">—</span>
+              <span class="score-sep">:</span>
+              <span class="score-right" id="scoreRight">—</span>
+            </div>
+            <div class="vs-termination" id="vsTermination"></div>
+          </div>
+        </div>
+
+        <div class="vs-fighter" id="fighterRight">
+          <div class="fighter-side right">
+            <div class="fighter-info">
+              <div class="fighter-color-badge black-badge">♚ Zwart</div>
+              <h2 class="fighter-name" id="nameRight"></h2>
+              <div class="fighter-rating" id="ratingRight"></div>
+            </div>
+            <div class="fighter-avatar-wrap">
+              <img id="avatarRight" src="" alt="" class="fighter-avatar" />
+              <div class="fighter-flag" id="flagRight"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Winner banner -->
+        <div class="winner-banner hidden" id="winnerBanner">
+          <span id="winnerText"></span>
+        </div>
+      </div>
+
+      <!-- STATS ROW -->
+      <div class="stats-section" id="statsSection">
+        <h3 class="section-title">Partijstatistieken</h3>
+        <div class="stats-grid" id="statsGrid"></div>
+      </div>
+
+      <!-- GAME INFO -->
+      <div class="info-section" id="infoSection">
+        <div class="info-cards">
+          <div class="info-card">
+            <span class="info-label">Tijdscontrole</span>
+            <span class="info-value" id="infoTimeControl"></span>
+          </div>
+          <div class="info-card">
+            <span class="info-label">Type</span>
+            <span class="info-value" id="infoTimeClass"></span>
+          </div>
+          <div class="info-card">
+            <span class="info-label">Datum</span>
+            <span class="info-value" id="infoDate"></span>
+          </div>
+          <div class="info-card">
+            <span class="info-label">Regels</span>
+            <span class="info-value" id="infoRules"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MOVES LOG -->
+      <div class="moves-section" id="movesSection">
+        <h3 class="section-title">Zetten <span class="moves-count" id="movesCount"></span></h3>
+        <div class="moves-board" id="movesBoard"></div>
+      </div>
+
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .game-page {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-family: var(--font-mono);
+    margin-bottom: 2.5rem;
+    transition: color 0.2s;
+    letter-spacing: 0.05em;
+  }
+
+  .back-btn:hover { color: var(--accent); }
+
+  /* ── Loading / Error ── */
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    gap: 1rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .load-spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .error-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    gap: 1rem;
+    color: var(--loss);
+  }
+
+  .back-link {
+    color: var(--muted);
+    font-size: 0.85rem;
+    transition: color 0.2s;
+  }
+
+  .back-link:hover { color: var(--accent); }
+
+  .hidden { display: none !important; }
+
+  /* ── VS Arena ── */
+  .vs-arena {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 2.5rem;
+    min-height: 240px;
+  }
+
+  .vs-arena::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 25% 50%, rgba(232,201,122,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse at 75% 50%, rgba(232,201,122,0.04) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .vs-fighter {
+    padding: 2.5rem 2rem;
+    opacity: 0;
+    transform: translateX(0);
+  }
+
+  .fighter-side {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .fighter-side.right {
+    flex-direction: row-reverse;
+  }
+
+  .fighter-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .fighter-avatar {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .fighter-flag {
+    position: absolute;
+    bottom: 0; right: 0;
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+
+  .fighter-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .fighter-side.right .fighter-info {
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  .fighter-color-badge {
+    font-size: 0.65rem;
+    font-family: var(--font-mono);
+    letter-spacing: 0.1em;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  .white-badge {
+    background: rgba(255,255,255,0.12);
+    color: var(--white);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  .black-badge {
+    background: rgba(0,0,0,0.4);
+    color: #aaa;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .fighter-name {
+    font-family: var(--font-display);
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: var(--white);
+  }
+
+  .fighter-rating {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  /* ── VS Center ── */
+  .vs-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+    min-width: 180px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .vs-center::before,
+  .vs-center::after {
+    content: '';
+    position: absolute;
+    top: 15%; bottom: 15%;
+    width: 1px;
+    background: var(--border);
+  }
+
+  .vs-center::before { left: 0; }
+  .vs-center::after  { right: 0; }
+
+  .vs-result-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    opacity: 0;
+  }
+
+  .vs-label {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .vs-scores {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-display);
+    font-size: 3rem;
+    line-height: 1;
+    letter-spacing: 0.05em;
+  }
+
+  .score-sep {
+    color: var(--border);
+    font-size: 2rem;
+  }
+
+  .score-left  { color: var(--win); }
+  .score-right { color: var(--loss); }
+
+  .score-left.loss,
+  .score-right.win { color: var(--loss); }
+  .score-left.win,
+  .score-right.loss { color: var(--win); }
+  .score-left.draw,
+  .score-right.draw { color: var(--draw); }
+
+  .vs-termination {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    max-width: 140px;
+    line-height: 1.4;
+  }
+
+  /* ── Winner Banner ── */
+  .winner-banner {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(90deg, transparent, var(--accent-dim), transparent);
+    border-top: 1px solid rgba(232,201,122,0.2);
+    padding: 0.6rem;
+    text-align: center;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    opacity: 0;
+  }
+
+  /* ── Winner glow on fighter ── */
+  .fighter-avatar.is-winner {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(232,201,122,0.2), 0 0 24px rgba(232,201,122,0.15);
+  }
+
+  .fighter-name.is-winner {
+    color: var(--accent);
+  }
+
+  /* ── Stats Section ── */
+  .stats-section {
+    margin-bottom: 2rem;
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    letter-spacing: 0.06em;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--white);
+  }
+
+  .moves-count {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 2px 10px;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .stat-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .stat-values {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .stat-val {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    letter-spacing: 0.04em;
+    line-height: 1;
+  }
+
+  .stat-val.left { text-align: left; }
+  .stat-val.right { text-align: right; }
+
+  .stat-val.winner { color: var(--accent); }
+  .stat-val.loser  { color: var(--muted); }
+
+  .stat-bar-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+    height: 4px;
+  }
+
+  .stat-bar {
+    border-radius: 2px;
+    background: var(--border);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .stat-bar-fill {
+    position: absolute;
+    top: 0; bottom: 0;
+    border-radius: 2px;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .stat-bar.left .stat-bar-fill  { right: 0; left: auto; }
+  .stat-bar.right .stat-bar-fill { left: 0; }
+
+  /* ── Info Cards ── */
+  .info-section {
+    margin-bottom: 2rem;
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  .info-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .info-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .info-value {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    letter-spacing: 0.04em;
+    text-transform: capitalize;
+  }
+
+  /* ── Moves ── */
+  .moves-section {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  .moves-board {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.8;
+  }
+
+  .move-pair {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+  }
+
+  .move-num {
+    color: var(--muted);
+    font-size: 0.7rem;
+    min-width: 1.8em;
+    text-align: right;
+  }
+
+  .move-white,
+  .move-black {
+    padding: 1px 6px;
+    border-radius: 4px;
+    cursor: default;
+    transition: background 0.15s;
+  }
+
+  .move-white {
+    background: rgba(255,255,255,0.06);
+    color: var(--white);
+  }
+
+  .move-black {
+    background: rgba(0,0,0,0.3);
+    color: #ccc;
+  }
+
+  .move-white:hover { background: rgba(232,201,122,0.12); color: var(--accent); }
+  .move-black:hover { background: rgba(232,201,122,0.12); color: var(--accent); }
+
+  /* ── Animations ── */
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-60px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(60px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes popIn {
+    0%   { opacity: 0; transform: scale(0.5); }
+    70%  { transform: scale(1.08); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 768px) {
+    .vs-arena { grid-template-columns: 1fr; min-height: auto; }
+    .vs-center { padding: 1rem; }
+    .vs-center::before, .vs-center::after { display: none; }
+    .fighter-side, .fighter-side.right { flex-direction: column; text-align: center; }
+    .fighter-side.right .fighter-info { align-items: center; }
+    .vs-fighter { padding: 1.5rem 1rem; }
+  }
+</style>
+
+<script>
+  // ── Parse game data from URL ──
+  function getGameData() {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('g');
+    if (!raw) return null;
+    try {
+      return JSON.parse(decodeURIComponent(raw));
+    } catch {
+      return null;
+    }
+  }
+
+  const FALLBACK_AVATAR = 'https://www.chess.com/bundles/web/images/user-image.007dad08.svg';
+
+  function formatDate(ts: number) {
+    return new Date(ts * 1000).toLocaleDateString('nl-NL', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    });
+  }
+
+  function getTermination(result: string) {
+    const map: Record<string,string> = {
+      win: 'Gewonnen', checkmated: 'Schaakmat', resigned: 'Opgegeven',
+      timeout: 'Timeout', abandoned: 'Verlaten', agreed: 'Remise overeengekomen',
+      stalemate: 'Pat', repetition: 'Drievoudige herhaling',
+      insufficient: 'Onvoldoende materiaal', '50move': '50-zetten-regel',
+    };
+    return map[result] ?? result;
+  }
+
+  // Parse moves from PGN
+  function parseMoves(pgn: string): string[] {
+    if (!pgn) return [];
+    // Remove headers and comments, then extract moves
+    const noHeaders = pgn.replace(/\[.*?\]\s*/g, '');
+    const noComments = noHeaders.replace(/\{[^}]*\}/g, '');
+    const tokens = noComments.trim().split(/\s+/);
+    const moves: string[] = [];
+    for (const token of tokens) {
+      if (!token) continue;
+      // Skip move numbers (e.g. "1.", "1...") and result tokens
+      if (/^\d+\.\.?\.?$/.test(token)) continue;
+      if (['1-0','0-1','1/2-1/2','*'].includes(token)) continue;
+      moves.push(token);
+    }
+    return moves;
+  }
+
+  // Count total moves per side from moves array
+  function countMoves(moves: string[]) {
+    return {
+      white: Math.ceil(moves.length / 2),
+      black: Math.floor(moves.length / 2),
+    };
+  }
+
+  // Web Animations API orchestration
+  function animateEntry() {
+    const timing = (delay: number, dur = 600) => ({
+      duration: dur,
+      delay,
+      easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+      fill: 'forwards' as FillMode,
+    });
+
+    const fighterLeft  = document.getElementById('fighterLeft');
+    const fighterRight = document.getElementById('fighterRight');
+    const vsResult     = document.getElementById('vsResultWrap');
+    const winnerBanner = document.getElementById('winnerBanner');
+    const statsSection = document.getElementById('statsSection');
+    const infoSection  = document.getElementById('infoSection');
+    const movesSection = document.getElementById('movesSection');
+
+    // Left fighter slides in
+    fighterLeft?.animate([
+      { opacity: 0, transform: 'translateX(-60px)' },
+      { opacity: 1, transform: 'translateX(0)' },
+    ], timing(100));
+
+    // Right fighter slides in
+    fighterRight?.animate([
+      { opacity: 0, transform: 'translateX(60px)' },
+      { opacity: 1, transform: 'translateX(0)' },
+    ], timing(100));
+
+    // VS center pops in
+    vsResult?.animate([
+      { opacity: 0, transform: 'scale(0.5)' },
+      { opacity: 1, transform: 'scale(1)' },
+    ], timing(500, 500));
+
+    // Winner banner fades up
+    if (winnerBanner && !winnerBanner.classList.contains('hidden')) {
+      winnerBanner.animate([
+        { opacity: 0 },
+        { opacity: 1 },
+      ], { duration: 500, delay: 900, fill: 'forwards' });
+    }
+
+    // Stats section
+    statsSection?.animate([
+      { opacity: 0, transform: 'translateY(20px)' },
+      { opacity: 1, transform: 'translateY(0)' },
+    ], { duration: 500, delay: 800, easing: 'ease', fill: 'forwards' });
+
+    // Info section
+    infoSection?.animate([
+      { opacity: 0, transform: 'translateY(20px)' },
+      { opacity: 1, transform: 'translateY(0)' },
+    ], { duration: 500, delay: 950, easing: 'ease', fill: 'forwards' });
+
+    // Moves section
+    movesSection?.animate([
+      { opacity: 0, transform: 'translateY(20px)' },
+      { opacity: 1, transform: 'translateY(0)' },
+    ], { duration: 500, delay: 1100, easing: 'ease', fill: 'forwards' });
+
+    // Animate stat bars after a short delay
+    setTimeout(() => {
+      document.querySelectorAll<HTMLElement>('.stat-bar-fill').forEach(el => {
+        const pct = el.dataset.pct ?? '0';
+        el.style.width = `${pct}%`;
+      });
+    }, 1000);
+  }
+
+  async function fetchAvatar(username: string): Promise<string> {
+    try {
+      const res = await fetch(`https://api.chess.com/pub/player/${username}`);
+      if (!res.ok) return FALLBACK_AVATAR;
+      const data = await res.json();
+      return data.avatar || FALLBACK_AVATAR;
+    } catch {
+      return FALLBACK_AVATAR;
+    }
+  }
+
+  function buildStatRow(
+    label: string,
+    leftVal: number | string,
+    rightVal: number | string,
+    higherIsBetter = true,
+  ) {
+    const l = parseFloat(String(leftVal)) || 0;
+    const r = parseFloat(String(rightVal)) || 0;
+    const total = l + r;
+    const leftPct  = total > 0 ? Math.round((l / total) * 100) : 50;
+    const rightPct = total > 0 ? Math.round((r / total) * 100) : 50;
+
+    let leftClass  = '';
+    let rightClass = '';
+    if (l !== r) {
+      if (higherIsBetter) {
+        leftClass  = l > r ? 'winner' : 'loser';
+        rightClass = r > l ? 'winner' : 'loser';
+      } else {
+        leftClass  = l < r ? 'winner' : 'loser';
+        rightClass = r < l ? 'winner' : 'loser';
+      }
+    }
+
+    return `
+      <div class="stat-row">
+        <div class="stat-label">${label}</div>
+        <div class="stat-values">
+          <div class="stat-val left ${leftClass}">${leftVal}</div>
+          <div class="stat-bar-wrap">
+            <div class="stat-bar left"><div class="stat-bar-fill" data-pct="${leftPct}"></div></div>
+            <div class="stat-bar right"><div class="stat-bar-fill" data-pct="${rightPct}"></div></div>
+          </div>
+          <div class="stat-val right ${rightClass}">${rightVal}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function init() {
+    const data = getGameData();
+    const loadingState  = document.getElementById('loadingState')  as HTMLElement;
+    const errorState    = document.getElementById('errorState')    as HTMLElement;
+    const gameContent   = document.getElementById('gameContent')   as HTMLElement;
+    const errorText     = document.getElementById('errorText')     as HTMLElement;
+
+    if (!data) {
+      loadingState.classList.add('hidden');
+      errorState.classList.remove('hidden');
+      errorText.textContent = 'Geen partijdata gevonden.';
+      return;
+    }
+
+    const { game, username, isWhite } = data;
+    const white = game.white;
+    const black = game.black;
+
+    // Determine outcomes
+    const whiteWon  = white.result === 'win';
+    const blackWon  = black.result === 'win';
+    const isDraw    = !whiteWon && !blackWon;
+
+    // Fetch avatars in parallel (Chess.com Content API)
+    const [whiteAvatar, blackAvatar] = await Promise.all([
+      fetchAvatar(white.username),
+      fetchAvatar(black.username),
+    ]);
+
+    // ── Populate VS Arena ──
+    (document.getElementById('avatarLeft')  as HTMLImageElement).src = whiteAvatar;
+    (document.getElementById('avatarRight') as HTMLImageElement).src = blackAvatar;
+    (document.getElementById('nameLeft')  as HTMLElement).textContent = white.username;
+    (document.getElementById('nameRight') as HTMLElement).textContent = black.username;
+    (document.getElementById('ratingLeft')  as HTMLElement).textContent = `${white.rating ?? '?'} ELO`;
+    (document.getElementById('ratingRight') as HTMLElement).textContent = `${black.rating ?? '?'} ELO`;
+
+    // Winner highlight (Web Animations API driven glow)
+    if (whiteWon) {
+      document.getElementById('avatarLeft')?.classList.add('is-winner');
+      document.getElementById('nameLeft')?.classList.add('is-winner');
+    } else if (blackWon) {
+      document.getElementById('avatarRight')?.classList.add('is-winner');
+      document.getElementById('nameRight')?.classList.add('is-winner');
+    }
+
+    // Scores
+    const scoreLeft  = document.getElementById('scoreLeft')  as HTMLElement;
+    const scoreRight = document.getElementById('scoreRight') as HTMLElement;
+    if (isDraw) {
+      scoreLeft.textContent  = '½';
+      scoreRight.textContent = '½';
+      scoreLeft.classList.add('draw');
+      scoreRight.classList.add('draw');
+    } else {
+      scoreLeft.textContent  = whiteWon ? '1' : '0';
+      scoreRight.textContent = blackWon ? '1' : '0';
+      scoreLeft.classList.add(whiteWon ? 'win' : 'loss');
+      scoreRight.classList.add(blackWon ? 'win' : 'loss');
+    }
+
+    // Termination
+    const termResult = white.result === 'win' ? black.result : white.result;
+    (document.getElementById('vsTermination') as HTMLElement).textContent =
+      getTermination(termResult);
+
+    // Winner banner
+    const winnerBanner = document.getElementById('winnerBanner') as HTMLElement;
+    const winnerText   = document.getElementById('winnerText')   as HTMLElement;
+    if (!isDraw) {
+      winnerBanner.classList.remove('hidden');
+      winnerText.textContent = `🏆 ${whiteWon ? white.username : black.username} wint!`;
+    }
+
+    // ── Parse moves ──
+    const moves = parseMoves(game.pgn ?? '');
+    const moveCounts = countMoves(moves);
+    const totalMoves = Math.ceil(moves.length / 2);
+
+    // ── Stats Grid ──
+    const statsGrid = document.getElementById('statsGrid') as HTMLElement;
+    const accuracy = game.accuracies;
+
+    let statsHTML = '';
+    statsHTML += buildStatRow('Rating', white.rating ?? '?', black.rating ?? '?');
+    statsHTML += buildStatRow('Aantal zetten', moveCounts.white, moveCounts.black);
+    if (accuracy) {
+      statsHTML += buildStatRow(
+        'Nauwkeurigheid (%)',
+        accuracy.white != null ? accuracy.white.toFixed(1) : '—',
+        accuracy.black != null ? accuracy.black.toFixed(1) : '—',
+      );
+    }
+    statsGrid.innerHTML = statsHTML;
+
+    // ── Info Cards ──
+    (document.getElementById('infoTimeControl') as HTMLElement).textContent =
+      game.time_control ?? '—';
+    (document.getElementById('infoTimeClass') as HTMLElement).textContent =
+      game.time_class ?? '—';
+    (document.getElementById('infoDate') as HTMLElement).textContent =
+      game.end_time ? formatDate(game.end_time) : '—';
+    (document.getElementById('infoRules') as HTMLElement).textContent =
+      game.rules ?? 'chess';
+
+    // ── Moves Board ──
+    const movesBoard = document.getElementById('movesBoard') as HTMLElement;
+    const movesCount = document.getElementById('movesCount') as HTMLElement;
+    movesCount.textContent = `${totalMoves} zetten`;
+
+    let movesHTML = '';
+    for (let i = 0; i < moves.length; i += 2) {
+      const moveNum = Math.floor(i / 2) + 1;
+      const mw = moves[i]   ?? '';
+      const mb = moves[i+1] ?? '';
+      movesHTML += `
+        <span class="move-pair">
+          <span class="move-num">${moveNum}.</span>
+          <span class="move-white">${mw}</span>
+          ${mb ? `<span class="move-black">${mb}</span>` : ''}
+        </span>
+      `;
+    }
+    movesBoard.innerHTML = movesHTML;
+
+    // Show content
+    loadingState.classList.add('hidden');
+    gameContent.classList.remove('hidden');
+
+    // Trigger Web Animations API sequence
+    animateEntry();
+  }
+
+  init();
+</script>
