@@ -87,10 +87,6 @@ const { username } = Astro.params;
       <div class="info-section" id="infoSection">
         <div class="info-cards">
           <div class="info-card">
-            <span class="info-label">Tijdscontrole</span>
-            <span class="info-value" id="infoTimeControl"></span>
-          </div>
-          <div class="info-card">
             <span class="info-label">Type</span>
             <span class="info-value" id="infoTimeClass"></span>
           </div>
@@ -363,7 +359,6 @@ const { username } = Astro.params;
   .winner-banner {
     position: absolute;
     bottom: 0; left: 0; right: 0;
-    background: linear-gradient(90deg, transparent, var(--accent-dim), transparent);
     border-top: 1px solid rgba(232,201,122,0.2);
     padding: 0.6rem;
     text-align: center;
@@ -882,8 +877,6 @@ const { username } = Astro.params;
     statsGrid.innerHTML = statsHTML;
 
     // ── Info Cards ──
-    (document.getElementById('infoTimeControl') as HTMLElement).textContent =
-      game.time_control ?? '—';
     (document.getElementById('infoTimeClass') as HTMLElement).textContent =
       game.time_class ?? '—';
     (document.getElementById('infoDate') as HTMLElement).textContent =
