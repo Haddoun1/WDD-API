@@ -48,5 +48,8 @@ Ik heb dit weer gepitched aan Jad en hij vond dat chart.js iets te makkelijk was
 <h3>Wat heb ik gedaan vandaag?</h3>
 <p>Vandaag is de laatste dag voor de vakantie. We hebben nog een moment gehad om hard te werken aan de website en vragen te stellen waar het nodig is. Ik had alleen nog hulp nodig met het creeeren van error screens. </p>
 
+<h2>Herkansing</h2>
+<p>Ik heb als feedback gekregen om mijn code waarbij ik data fetch van de api voor de username.astro te verplaatsen van de client side naar de server side. Dit helpt met het sneller laden van de pagina. Ook heb ik allerlei typescript in me code zitten door AI, dus dit heb ik aangepast. Verder heb ik nog gekeken of ik geprobeerd om zo goed mogelijk mijn code te begrijpen. </p>
+
 
 

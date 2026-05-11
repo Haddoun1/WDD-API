@@ -490,6 +490,8 @@ import Layout from "../layouts/Layout.astro";
     errorMsg.classList.remove('hidden');
   }
 
+  //Hulp van ChatGPT prompt: "Geef me een JavaScript functie die de resultaten van een schaakpartij classificeert als 'win', 'loss' of 'draw' op basis van de terminatie van het spel. Gebruik de volgende terminaties: 'win' voor winst, 'checkmated', 'resigned', 'timeout', 'abandoned', en 'lose' voor verlies, en alle andere terminaties als gelijkspel."
+
   function getResultClass(result) {
     if (result === 'win') return 'win';
     if (['checkmated','resigned','timeout','abandoned','lose'].includes(result)) return 'loss';
@@ -559,6 +561,8 @@ import Layout from "../layouts/Layout.astro";
         titleEl.style.display = 'none';
       }
 
+      //hulp van Ocean
+
       const countryCode = profile.country?.split('/').pop() ?? '';
       document.getElementById('playerCountry').textContent =
         countryCode ? `🌍 ${countryCode}` : '';
@@ -587,6 +591,7 @@ import Layout from "../layouts/Layout.astro";
       hideLoading();
 
       // ── Fetch recent games ──
+      // Deze fetch kan niet in frontmatter omdat je een willekeurige persoon zoekt omdat je niet al de user hebt geladen. 
       const now = new Date();
       let games = [];
       for (let offset = 0; offset <= 3 && games.length === 0; offset++) {
