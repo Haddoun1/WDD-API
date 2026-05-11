@@ -4,7 +4,6 @@ import Layout from "../../layouts/Layout.astro";
 
 const { username } = Astro.params;
 
-// ── Parse game data from URL ──
 const rawParam = Astro.url.searchParams.get('g');
 let gameData = null;
 let whiteAvatar = 'https://www.chess.com/bundles/web/images/user-image.007dad08.svg';
@@ -16,7 +15,6 @@ if (rawParam) {
   try {
     gameData = JSON.parse(decodeURIComponent(rawParam));
 
-    // ── Fetch both avatars server-side in parallel ──
     const fetchAvatar = async (name) => {
       try {
         const res = await fetch(`https://api.chess.com/pub/player/${name}`);
@@ -41,7 +39,6 @@ if (rawParam) {
 <Layout title={`Partij — ${username}`}>
   <div class="game-page">
 
-    <!-- Back button -->
     <a href="/" class="back-btn" id="backBtn">
       <span>←</span> Terug
     </a>
