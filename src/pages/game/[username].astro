@@ -3,8 +3,40 @@ export const prerender = false;
 import Layout from "../../layouts/Layout.astro";
 
 const { username } = Astro.params;
----
 
+// ── Parse game data from URL ──
+const rawParam = Astro.url.searchParams.get('g');
+let gameData = null;
+let whiteAvatar = 'https://www.chess.com/bundles/web/images/user-image.007dad08.svg';
+let blackAvatar = 'https://www.chess.com/bundles/web/images/user-image.007dad08.svg';
+
+const FALLBACK_AVATAR = 'https://www.chess.com/bundles/web/images/user-image.007dad08.svg';
+
+if (rawParam) {
+  try {
+    gameData = JSON.parse(decodeURIComponent(rawParam));
+
+    // ── Fetch both avatars server-side in parallel ──
+    const fetchAvatar = async (name) => {
+      try {
+        const res = await fetch(`https://api.chess.com/pub/player/${name}`);
+        if (!res.ok) return FALLBACK_AVATAR;
+        const data = await res.json();
+        return data.avatar || FALLBACK_AVATAR;
+      } catch {
+        return FALLBACK_AVATAR;
+      }
+    };
+
+    [whiteAvatar, blackAvatar] = await Promise.all([
+      fetchAvatar(gameData.game.white.username),
+      fetchAvatar(gameData.game.black.username),
+    ]);
+  } catch {
+    gameData = null;
+  }
+}
+---
 
 <Layout title={`Partij — ${username}`}>
   <div class="game-page">
@@ -14,100 +46,96 @@ const { username } = Astro.params;
       <span>←</span> Terug
     </a>
 
-    <!-- Loading state -->
-    <div id="loadingState" class="loading-state">
-      <div class="load-spinner"></div>
-      <p>Partij laden...</p>
-    </div>
-
-    <!-- Error state -->
-    <div id="errorState" class="error-state hidden">
-      <p id="errorText">Er ging iets mis.</p>
-      <a href="/" class="back-link">← Terug naar zoeken</a>
-    </div>
-
-    <!-- Main game content -->
-    <div id="gameContent" class="game-content hidden">
-
-      <!-- BOXING VS HEADER -->
-      <div class="vs-arena" id="vsArena">
-        <div class="vs-fighter" id="fighterLeft">
-          <div class="fighter-side left">
-            <div class="fighter-avatar-wrap">
-              <img id="avatarLeft" src="" alt="" class="fighter-avatar" />
-              <div class="fighter-flag" id="flagLeft"></div>
-            </div>
-            <div class="fighter-info">
-              <div class="fighter-color-badge white-badge">♔ Wit</div>
-              <h2 class="fighter-name" id="nameLeft"></h2>
-              <div class="fighter-rating" id="ratingLeft"></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="vs-center" id="vsCenter">
-          <div class="vs-result-wrap" id="vsResultWrap">
-            <div class="vs-label" id="vsLabel">VS</div>
-            <div class="vs-scores" id="vsScores">
-              <span class="score-left" id="scoreLeft">—</span>
-              <span class="score-sep">:</span>
-              <span class="score-right" id="scoreRight">—</span>
-            </div>
-            <div class="vs-termination" id="vsTermination"></div>
-          </div>
-        </div>
-
-        <div class="vs-fighter" id="fighterRight">
-          <div class="fighter-side right">
-            <div class="fighter-info">
-              <div class="fighter-color-badge black-badge">♚ Zwart</div>
-              <h2 class="fighter-name" id="nameRight"></h2>
-              <div class="fighter-rating" id="ratingRight"></div>
-            </div>
-            <div class="fighter-avatar-wrap">
-              <img id="avatarRight" src="" alt="" class="fighter-avatar" />
-              <div class="fighter-flag" id="flagRight"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Winner banner -->
-        <div class="winner-banner hidden" id="winnerBanner">
-          <span id="winnerText"></span>
-        </div>
+    {!gameData ? (
+      <!-- Error state: no game data found -->
+      <div class="error-state">
+        <p>Geen partijdata gevonden.</p>
+        <a href="/" class="back-link">← Terug naar zoeken</a>
       </div>
+    ) : (
+      <!-- Main game content, rendered server-side with JS animation on top -->
+      <div id="gameContent" class="game-content">
 
-      <!-- STATS ROW -->
-      <div class="stats-section" id="statsSection">
-        <h3 class="section-title">Partijstatistieken</h3>
-        <div class="stats-grid" id="statsGrid"></div>
-      </div>
+        <!-- BOXING VS HEADER -->
+        <div class="vs-arena" id="vsArena">
+          <div class="vs-fighter" id="fighterLeft">
+            <div class="fighter-side left">
+              <div class="fighter-avatar-wrap">
+                <img id="avatarLeft" src={whiteAvatar} alt={gameData.game.white.username} class="fighter-avatar" />
+                <div class="fighter-flag" id="flagLeft"></div>
+              </div>
+              <div class="fighter-info">
+                <div class="fighter-color-badge white-badge">♔ Wit</div>
+                <h2 class="fighter-name" id="nameLeft">{gameData.game.white.username}</h2>
+                <div class="fighter-rating" id="ratingLeft">{gameData.game.white.rating ?? '?'} ELO</div>
+              </div>
+            </div>
+          </div>
 
-      <!-- GAME INFO -->
-      <div class="info-section" id="infoSection">
-        <div class="info-cards">
-          <div class="info-card">
-            <span class="info-label">Type</span>
-            <span class="info-value" id="infoTimeClass"></span>
+          <div class="vs-center" id="vsCenter">
+            <div class="vs-result-wrap" id="vsResultWrap">
+              <div class="vs-label" id="vsLabel">VS</div>
+              <div class="vs-scores" id="vsScores">
+                <span class="score-left" id="scoreLeft">—</span>
+                <span class="score-sep">:</span>
+                <span class="score-right" id="scoreRight">—</span>
+              </div>
+              <div class="vs-termination" id="vsTermination"></div>
+            </div>
           </div>
-          <div class="info-card">
-            <span class="info-label">Datum</span>
-            <span class="info-value" id="infoDate"></span>
+
+          <div class="vs-fighter" id="fighterRight">
+            <div class="fighter-side right">
+              <div class="fighter-info">
+                <div class="fighter-color-badge black-badge">♚ Zwart</div>
+                <h2 class="fighter-name" id="nameRight">{gameData.game.black.username}</h2>
+                <div class="fighter-rating" id="ratingRight">{gameData.game.black.rating ?? '?'} ELO</div>
+              </div>
+              <div class="fighter-avatar-wrap">
+                <img id="avatarRight" src={blackAvatar} alt={gameData.game.black.username} class="fighter-avatar" />
+                <div class="fighter-flag" id="flagRight"></div>
+              </div>
+            </div>
           </div>
-          <div class="info-card">
-            <span class="info-label">Regels</span>
-            <span class="info-value" id="infoRules"></span>
+
+          <!-- Winner banner -->
+          <div class="winner-banner hidden" id="winnerBanner">
+            <span id="winnerText"></span>
           </div>
         </div>
-      </div>
 
-      <!-- MOVES LOG -->
-      <div class="moves-section" id="movesSection">
-        <h3 class="section-title">Zetten <span class="moves-count" id="movesCount"></span></h3>
-        <div class="moves-board" id="movesBoard"></div>
-      </div>
+        <!-- STATS ROW -->
+        <div class="stats-section" id="statsSection">
+          <h3 class="section-title">Partijstatistieken</h3>
+          <div class="stats-grid" id="statsGrid"></div>
+        </div>
 
-    </div>
+        <!-- GAME INFO -->
+        <div class="info-section" id="infoSection">
+          <div class="info-cards">
+            <div class="info-card">
+              <span class="info-label">Type</span>
+              <span class="info-value" id="infoTimeClass"></span>
+            </div>
+            <div class="info-card">
+              <span class="info-label">Datum</span>
+              <span class="info-value" id="infoDate"></span>
+            </div>
+            <div class="info-card">
+              <span class="info-label">Regels</span>
+              <span class="info-value" id="infoRules"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- MOVES LOG -->
+        <div class="moves-section" id="movesSection">
+          <h3 class="section-title">Zetten <span class="moves-count" id="movesCount"></span></h3>
+          <div class="moves-board" id="movesBoard"></div>
+        </div>
+
+      </div>
+    )}
   </div>
 </Layout>
 
@@ -131,26 +159,7 @@ const { username } = Astro.params;
 
   .back-btn:hover { color: var(--accent); }
 
-  /* ── Loading / Error ── */
-  .loading-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 60vh;
-    gap: 1rem;
-    color: var(--muted);
-    font-size: 0.9rem;
-  }
-
-  .load-spinner {
-    width: 36px; height: 36px;
-    border: 3px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
+  /* ── Error ── */
   .error-state {
     display: flex;
     flex-direction: column;
@@ -605,28 +614,17 @@ const { username } = Astro.params;
 </style>
 
 <script>
-  // ── Parse game data from URL ──
-  function getGameData() {
-    const params = new URLSearchParams(window.location.search);
-    const raw = params.get('g');
-    if (!raw) return null;
-    try {
-      return JSON.parse(decodeURIComponent(raw));
-    } catch {
-      return null;
-    }
-  }
+  // @ts-nocheck
 
-  const FALLBACK_AVATAR = 'https://www.chess.com/bundles/web/images/user-image.007dad08.svg';
-
-  function formatDate(ts: number) {
+  // ── Helpers ──
+  function formatDate(ts) {
     return new Date(ts * 1000).toLocaleDateString('nl-NL', {
       day: 'numeric', month: 'long', year: 'numeric',
     });
   }
 
-  function getTermination(result: string) {
-    const map: Record<string,string> = {
+  function getTermination(result) {
+    const map = {
       win: 'Gewonnen', checkmated: 'Schaakmat', resigned: 'Opgegeven',
       timeout: 'Timeout', abandoned: 'Verlaten', agreed: 'Remise overeengekomen',
       stalemate: 'Pat', repetition: 'Drievoudige herhaling',
@@ -636,16 +634,14 @@ const { username } = Astro.params;
   }
 
   // Parse moves from PGN
-  function parseMoves(pgn: string): string[] {
+  function parseMoves(pgn) {
     if (!pgn) return [];
-    // Remove headers and comments, then extract moves
     const noHeaders = pgn.replace(/\[.*?\]\s*/g, '');
     const noComments = noHeaders.replace(/\{[^}]*\}/g, '');
     const tokens = noComments.trim().split(/\s+/);
-    const moves: string[] = [];
+    const moves = [];
     for (const token of tokens) {
       if (!token) continue;
-      // Skip move numbers (e.g. "1.", "1...") and result tokens
       if (/^\d+\.\.?\.?$/.test(token)) continue;
       if (['1-0','0-1','1/2-1/2','*'].includes(token)) continue;
       moves.push(token);
@@ -653,8 +649,7 @@ const { username } = Astro.params;
     return moves;
   }
 
-  // Count total moves per side from moves array
-  function countMoves(moves: string[]) {
+  function countMoves(moves) {
     return {
       white: Math.ceil(moves.length / 2),
       black: Math.floor(moves.length / 2),
@@ -663,11 +658,11 @@ const { username } = Astro.params;
 
   // Web Animations API orchestration
   function animateEntry() {
-    const timing = (delay: number, dur = 600) => ({
+    const timing = (delay, dur = 600) => ({
       duration: dur,
       delay,
       easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-      fill: 'forwards' as FillMode,
+      fill: 'forwards',
     });
 
     const fighterLeft  = document.getElementById('fighterLeft');
@@ -678,25 +673,21 @@ const { username } = Astro.params;
     const infoSection  = document.getElementById('infoSection');
     const movesSection = document.getElementById('movesSection');
 
-    // Left fighter slides in
     fighterLeft?.animate([
       { opacity: 0, transform: 'translateX(-60px)' },
       { opacity: 1, transform: 'translateX(0)' },
     ], timing(100));
 
-    // Right fighter slides in
     fighterRight?.animate([
       { opacity: 0, transform: 'translateX(60px)' },
       { opacity: 1, transform: 'translateX(0)' },
     ], timing(100));
 
-    // VS center pops in
     vsResult?.animate([
       { opacity: 0, transform: 'scale(0.5)' },
       { opacity: 1, transform: 'scale(1)' },
     ], timing(500, 500));
 
-    // Winner banner fades up
     if (winnerBanner && !winnerBanner.classList.contains('hidden')) {
       winnerBanner.animate([
         { opacity: 0 },
@@ -704,50 +695,30 @@ const { username } = Astro.params;
       ], { duration: 500, delay: 900, fill: 'forwards' });
     }
 
-    // Stats section
     statsSection?.animate([
       { opacity: 0, transform: 'translateY(20px)' },
       { opacity: 1, transform: 'translateY(0)' },
     ], { duration: 500, delay: 800, easing: 'ease', fill: 'forwards' });
 
-    // Info section
     infoSection?.animate([
       { opacity: 0, transform: 'translateY(20px)' },
       { opacity: 1, transform: 'translateY(0)' },
     ], { duration: 500, delay: 950, easing: 'ease', fill: 'forwards' });
 
-    // Moves section
     movesSection?.animate([
       { opacity: 0, transform: 'translateY(20px)' },
       { opacity: 1, transform: 'translateY(0)' },
     ], { duration: 500, delay: 1100, easing: 'ease', fill: 'forwards' });
 
-    // Animate stat bars after a short delay
     setTimeout(() => {
-      document.querySelectorAll<HTMLElement>('.stat-bar-fill').forEach(el => {
+      document.querySelectorAll('.stat-bar-fill').forEach(el => {
         const pct = el.dataset.pct ?? '0';
         el.style.width = `${pct}%`;
       });
     }, 1000);
   }
 
-  async function fetchAvatar(username: string): Promise<string> {
-    try {
-      const res = await fetch(`https://api.chess.com/pub/player/${username}`);
-      if (!res.ok) return FALLBACK_AVATAR;
-      const data = await res.json();
-      return data.avatar || FALLBACK_AVATAR;
-    } catch {
-      return FALLBACK_AVATAR;
-    }
-  }
-
-  function buildStatRow(
-    label: string,
-    leftVal: number | string,
-    rightVal: number | string,
-    higherIsBetter = true,
-  ) {
+  function buildStatRow(label, leftVal, rightVal, higherIsBetter = true) {
     const l = parseFloat(String(leftVal)) || 0;
     const r = parseFloat(String(rightVal)) || 0;
     const total = l + r;
@@ -781,44 +752,28 @@ const { username } = Astro.params;
     `;
   }
 
-  async function init() {
-    const data = getGameData();
-    const loadingState  = document.getElementById('loadingState')  as HTMLElement;
-    const errorState    = document.getElementById('errorState')    as HTMLElement;
-    const gameContent   = document.getElementById('gameContent')   as HTMLElement;
-    const errorText     = document.getElementById('errorText')     as HTMLElement;
+  function init() {
+    // ── Re-read game data from URL on the client for dynamic rendering ──
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('g');
+    if (!raw) return;
 
-    if (!data) {
-      loadingState.classList.add('hidden');
-      errorState.classList.remove('hidden');
-      errorText.textContent = 'Geen partijdata gevonden.';
+    let parsed;
+    try {
+      parsed = JSON.parse(decodeURIComponent(raw));
+    } catch {
       return;
     }
 
-    const { game, username, isWhite } = data;
+    const { game, username, isWhite } = parsed;
     const white = game.white;
     const black = game.black;
 
-    // Determine outcomes
-    const whiteWon  = white.result === 'win';
-    const blackWon  = black.result === 'win';
-    const isDraw    = !whiteWon && !blackWon;
+    const whiteWon = white.result === 'win';
+    const blackWon = black.result === 'win';
+    const isDraw   = !whiteWon && !blackWon;
 
-    // Fetch avatars in parallel (Chess.com Content API)
-    const [whiteAvatar, blackAvatar] = await Promise.all([
-      fetchAvatar(white.username),
-      fetchAvatar(black.username),
-    ]);
-
-    // ── Populate VS Arena ──
-    (document.getElementById('avatarLeft')  as HTMLImageElement).src = whiteAvatar;
-    (document.getElementById('avatarRight') as HTMLImageElement).src = blackAvatar;
-    (document.getElementById('nameLeft')  as HTMLElement).textContent = white.username;
-    (document.getElementById('nameRight') as HTMLElement).textContent = black.username;
-    (document.getElementById('ratingLeft')  as HTMLElement).textContent = `${white.rating ?? '?'} ELO`;
-    (document.getElementById('ratingRight') as HTMLElement).textContent = `${black.rating ?? '?'} ELO`;
-
-    // Winner highlight (Web Animations API driven glow)
+    // Winner highlight
     if (whiteWon) {
       document.getElementById('avatarLeft')?.classList.add('is-winner');
       document.getElementById('nameLeft')?.classList.add('is-winner');
@@ -828,8 +783,8 @@ const { username } = Astro.params;
     }
 
     // Scores
-    const scoreLeft  = document.getElementById('scoreLeft')  as HTMLElement;
-    const scoreRight = document.getElementById('scoreRight') as HTMLElement;
+    const scoreLeft  = document.getElementById('scoreLeft');
+    const scoreRight = document.getElementById('scoreRight');
     if (isDraw) {
       scoreLeft.textContent  = '½';
       scoreRight.textContent = '½';
@@ -844,12 +799,11 @@ const { username } = Astro.params;
 
     // Termination
     const termResult = white.result === 'win' ? black.result : white.result;
-    (document.getElementById('vsTermination') as HTMLElement).textContent =
-      getTermination(termResult);
+    document.getElementById('vsTermination').textContent = getTermination(termResult);
 
     // Winner banner
-    const winnerBanner = document.getElementById('winnerBanner') as HTMLElement;
-    const winnerText   = document.getElementById('winnerText')   as HTMLElement;
+    const winnerBanner = document.getElementById('winnerBanner');
+    const winnerText   = document.getElementById('winnerText');
     if (!isDraw) {
       winnerBanner.classList.remove('hidden');
       winnerText.textContent = `🏆 ${whiteWon ? white.username : black.username} wint!`;
@@ -861,7 +815,7 @@ const { username } = Astro.params;
     const totalMoves = Math.ceil(moves.length / 2);
 
     // ── Stats Grid ──
-    const statsGrid = document.getElementById('statsGrid') as HTMLElement;
+    const statsGrid = document.getElementById('statsGrid');
     const accuracy = game.accuracies;
 
     let statsHTML = '';
@@ -877,17 +831,13 @@ const { username } = Astro.params;
     statsGrid.innerHTML = statsHTML;
 
     // ── Info Cards ──
-    (document.getElementById('infoTimeClass') as HTMLElement).textContent =
-      game.time_class ?? '—';
-    (document.getElementById('infoDate') as HTMLElement).textContent =
-      game.end_time ? formatDate(game.end_time) : '—';
-    (document.getElementById('infoRules') as HTMLElement).textContent =
-      game.rules ?? 'chess';
+    document.getElementById('infoTimeClass').textContent = game.time_class ?? '—';
+    document.getElementById('infoDate').textContent = game.end_time ? formatDate(game.end_time) : '—';
+    document.getElementById('infoRules').textContent = game.rules ?? 'chess';
 
     // ── Moves Board ──
-    const movesBoard = document.getElementById('movesBoard') as HTMLElement;
-    const movesCount = document.getElementById('movesCount') as HTMLElement;
-    movesCount.textContent = `${totalMoves} zetten`;
+    const movesBoard = document.getElementById('movesBoard');
+    document.getElementById('movesCount').textContent = `${totalMoves} zetten`;
 
     let movesHTML = '';
     for (let i = 0; i < moves.length; i += 2) {
@@ -904,11 +854,7 @@ const { username } = Astro.params;
     }
     movesBoard.innerHTML = movesHTML;
 
-    // Show content
-    loadingState.classList.add('hidden');
-    gameContent.classList.remove('hidden');
-
-    // Trigger Web Animations API sequence
+    // Trigger animation sequence
     animateEntry();
   }
 

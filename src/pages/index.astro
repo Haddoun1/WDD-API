@@ -462,18 +462,18 @@ import Layout from "../layouts/Layout.astro";
 </style>
 
 <script>
-
+  // @ts-nocheck
 
   // ── DOM refs ──
-  const form          = document.getElementById('searchForm')    as HTMLFormElement;
-  const input         = document.getElementById('usernameInput') as HTMLInputElement;
-  const playerCard    = document.getElementById('playerCard')    as HTMLElement;
-  const errorMsg      = document.getElementById('errorMsg')      as HTMLElement;
-  const loadingMsg    = document.getElementById('loadingMsg')    as HTMLElement;
-  const gamesEmpty    = document.getElementById('gamesEmpty')    as HTMLElement;
-  const gamesContainer= document.getElementById('gamesContainer')as HTMLElement;
-  const gamesList     = document.getElementById('gamesList')     as HTMLElement;
-  const gamesCount    = document.getElementById('gamesCount')    as HTMLElement;
+  const form           = document.getElementById('searchForm');
+  const input          = document.getElementById('usernameInput');
+  const playerCard     = document.getElementById('playerCard');
+  const errorMsg       = document.getElementById('errorMsg');
+  const loadingMsg     = document.getElementById('loadingMsg');
+  const gamesEmpty     = document.getElementById('gamesEmpty');
+  const gamesContainer = document.getElementById('gamesContainer');
+  const gamesList      = document.getElementById('gamesList');
+  const gamesCount     = document.getElementById('gamesCount');
 
   function showLoading() {
     loadingMsg.classList.remove('hidden');
@@ -485,19 +485,19 @@ import Layout from "../layouts/Layout.astro";
     loadingMsg.classList.add('hidden');
   }
 
-  function showError(msg: string) {
+  function showError(msg) {
     errorMsg.textContent = msg;
     errorMsg.classList.remove('hidden');
   }
 
-  function getResultClass(result: string) {
+  function getResultClass(result) {
     if (result === 'win') return 'win';
     if (['checkmated','resigned','timeout','abandoned','lose'].includes(result)) return 'loss';
     return 'draw';
   }
 
-  function getResultLabel(result: string) {
-    const map: Record<string,string> = {
+  function getResultLabel(result) {
+    const map = {
       win: 'WIN', checkmated: 'LOSS', resigned: 'LOSS',
       timeout: 'LOSS', abandoned: 'LOSS', agreed: 'DRAW',
       stalemate: 'DRAW', repetition: 'DRAW', insufficient: 'DRAW',
@@ -506,8 +506,8 @@ import Layout from "../layouts/Layout.astro";
     return map[result] ?? result.toUpperCase();
   }
 
-  function getTerminationLabel(result: string) {
-    const map: Record<string,string> = {
+  function getTerminationLabel(result) {
+    const map = {
       win: 'Opponent resigned / checkmated', checkmated: 'Checkmate',
       resigned: 'Resigned', timeout: 'Timeout', abandoned: 'Abandoned',
       agreed: 'Draw agreed', stalemate: 'Stalemate',
@@ -517,7 +517,7 @@ import Layout from "../layouts/Layout.astro";
     return map[result] ?? result;
   }
 
-  function formatDate(ts: number) {
+  function formatDate(ts) {
     return new Date(ts * 1000).toLocaleDateString('nl-NL', {
       day: 'numeric', month: 'short', year: 'numeric',
     });
@@ -543,15 +543,15 @@ import Layout from "../layouts/Layout.astro";
       const stats = statsRes.ok ? await statsRes.json() : {};
 
       // ── Render player card ──
-      (document.getElementById('playerAvatar') as HTMLImageElement).src =
+      document.getElementById('playerAvatar').src =
         profile.avatar || 'https://www.chess.com/bundles/web/images/user-image.007dad08.svg';
 
-      const statusDot = document.getElementById('playerStatus') as HTMLElement;
+      const statusDot = document.getElementById('playerStatus');
       statusDot.className = 'status-dot' + (profile.status === 'online' ? ' online' : '');
 
-      (document.getElementById('playerName') as HTMLElement).textContent = profile.username;
+      document.getElementById('playerName').textContent = profile.username;
 
-      const titleEl = document.getElementById('playerTitle') as HTMLElement;
+      const titleEl = document.getElementById('playerTitle');
       if (profile.title) {
         titleEl.textContent = profile.title;
         titleEl.style.display = 'inline-block';
@@ -560,14 +560,14 @@ import Layout from "../layouts/Layout.astro";
       }
 
       const countryCode = profile.country?.split('/').pop() ?? '';
-      (document.getElementById('playerCountry') as HTMLElement).textContent =
+      document.getElementById('playerCountry').textContent =
         countryCode ? `🌍 ${countryCode}` : '';
 
-      const followersEl = document.getElementById('playerFollowers') as HTMLElement;
+      const followersEl = document.getElementById('playerFollowers');
       if (profile.followers)
         followersEl.textContent = `${profile.followers.toLocaleString()} volgers`;
 
-      const ratingsEl = document.getElementById('playerRatings') as HTMLElement;
+      const ratingsEl = document.getElementById('playerRatings');
       ratingsEl.innerHTML = '';
       for (const { key, label } of [
         { key: 'chess_rapid', label: 'Rapid' },
@@ -588,7 +588,7 @@ import Layout from "../layouts/Layout.astro";
 
       // ── Fetch recent games ──
       const now = new Date();
-      let games: any[] = [];
+      let games = [];
       for (let offset = 0; offset <= 3 && games.length === 0; offset++) {
         const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
         const y = d.getFullYear();
@@ -613,7 +613,7 @@ import Layout from "../layouts/Layout.astro";
       gamesCount.textContent = `${recent.length} partijen`;
       gamesList.innerHTML = '';
 
-      recent.forEach((game: any, idx: number) => {
+      recent.forEach((game, idx) => {
         const isWhite = game.white.username.toLowerCase() === username.toLowerCase();
         const me = isWhite ? game.white : game.black;
         const opp = isWhite ? game.black : game.white;
@@ -653,7 +653,7 @@ import Layout from "../layouts/Layout.astro";
         gamesList.appendChild(li);
       });
 
-    } catch (err: any) {
+    } catch (err) {
       hideLoading();
       showError(err.message || 'Er ging iets mis. Probeer het opnieuw.');
     }
